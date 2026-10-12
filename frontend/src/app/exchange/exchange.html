@@ -1,0 +1,412 @@
+
+<div class="exchange-page">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Trade Exchange home"
+       (click)="$event.preventDefault()">
+      <span class="brand-symbol">T</span>
+      <span>TRADE<span class="brand-accent">EX</span></span>
+    </a>
+
+    <button class="mobile-menu" type="button"
+            aria-label="Toggle navigation"
+            (click)="showMobileNav = !showMobileNav">☰</button>
+
+    <nav class="main-nav" [class.nav-open]="showMobileNav">
+      <a href="#" (click)="$event.preventDefault()">Markets</a>
+      <a href="#" class="active" (click)="$event.preventDefault()">Trade</a>
+      <a href="#" (click)="$event.preventDefault()">Orders</a>
+      <a href="#" (click)="$event.preventDefault()">Assets</a>
+    </nav>
+
+    <div class="topbar-actions">
+      <span class="demo-status">
+        <i class="status-dot"></i>{{ connectionStatus }}
+      </span>
+      <button class="profile-button" type="button"
+              aria-label="Demo profile">U</button>
+    </div>
+  </header>
+
+  <section class="market-summary" aria-label="Market summary"
+           *ngIf="selectedMarket as market">
+    <div class="pair-block">
+      <div class="coin-icon">{{ market.icon }}</div>
+      <div class="pair-select">
+        <select aria-label="Select trading pair"
+                [ngModel]="selectedPair"
+                (ngModelChange)="selectPair($event)">
+          <option *ngFor="let pair of marketPairs"
+                  [value]="pair.symbol">{{ pair.symbol }}</option>
+        </select>
+        <span class="pair-subtitle">
+          {{ market.name }} / {{ market.quote }}
+        </span>
+      </div>
+    </div>
+
+    <div class="market-stat last-price">
+      <span>Last price</span>
+      <strong>{{ currentPrice | number:'1.2-8' }}</strong>
+      <small>{{ quoteAsset }}</small>
+    </div>
+
+    <div class="market-stat">
+      <span>24h change</span>
+      <strong [class.positive]="market.change >= 0"
+              [class.negative]="market.change < 0">
+        {{ market.change > 0 ? '+' : '' }}{{ market.change | number:'1.2-2' }}%
+      </strong>
+    </div>
+
+    <div class="market-stat">
+      <span>24h high</span>
+      <strong>{{ market.high | number:'1.2-8' }}</strong>
+    </div>
+
+    <div class="market-stat">
+      <span>24h low</span>
+      <strong>{{ market.low | number:'1.2-8' }}</strong>
+    </div>
+
+    <div class="market-stat volume-stat">
+      <span>24h volume</span>
+      <strong>{{ market.volume }}</strong>
+    </div>
+  </section>
+
+  <main class="trading-layout"
+        [class.chart-expanded-layout]="chartExpanded"
+        [class.book-expanded-layout]="orderBookExpanded">
+
+    <section class="panel chart-panel" [class.panel-expanded]="chartExpanded">
+      <div class="panel-heading chart-heading">
+        <div class="heading-title">
+          <span class="section-kicker">MARKET</span>
+          <h2>{{ selectedPair }}</h2>
+        </div>
+
+        <div class="chart-heading-actions">
+          <span class="sample-badge">
+            <i></i> ILLUSTRATIVE CANDLES
+          </span>
+          <button class="icon-button expand-button" type="button"
+                  (click)="toggleChartExpanded()"
+                  [attr.aria-label]="chartExpanded ? 'Restore chart layout' : 'Expand chart'"
+                  [title]="chartExpanded ? 'Restore layout' : 'Expand chart'">
+            {{ chartExpanded ? '⊡' : '⛶' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="chart-toolbar">
+        <div class="timeframes" aria-label="Chart timeframe">
+          <button *ngFor="let tf of timeframes" type="button"
+                  [class.selected]="activeTimeframe === tf"
+                  (click)="selectTimeframe(tf)">{{ tf }}</button>
+        </div>
+
+        <div class="chart-tools">
+          <button type="button"
+                  (click)="showChartIndicators = !showChartIndicators"
+                  [class.selected]="showChartIndicators"
+                  title="Toggle illustrative indicator">ƒx</button>
+          <span class="toolbar-divider"></span>
+          <span class="chart-provider">TRADEEX CHART</span>
+          <button class="icon-button" type="button"
+                  (click)="toggleChartExpanded()"
+                  [title]="chartExpanded ? 'Restore layout' : 'Expand chart'">
+            {{ chartExpanded ? '⊡' : '⛶' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="chart-meta">
+        <strong>{{ selectedPair }}</strong>
+        <span class="positive">{{ currentPrice | number:'1.2-8' }}</span>
+        <span class="chart-meta-right">
+          {{ activeTimeframe }} · Illustrative candles
+        </span>
+      </div>
+
+      <div class="chart-canvas">
+        <div class="chart-y-axis" aria-hidden="true">
+          <span>{{ currentPrice * 1.025 | number:'1.0-0' }}</span>
+          <span>{{ currentPrice * 1.012 | number:'1.0-0' }}</span>
+          <span>{{ currentPrice | number:'1.0-0' }}</span>
+          <span>{{ currentPrice * 0.988 | number:'1.0-0' }}</span>
+          <span>{{ currentPrice * 0.975 | number:'1.0-0' }}</span>
+        </div>
+
+        <svg class="price-chart" viewBox="0 0 720 390"
+             preserveAspectRatio="none" role="img"
+             [attr.aria-label]="'Illustrative ' + selectedPair + ' candlestick chart'">
+          <defs>
+            <pattern id="chart-grid" width="72" height="65"
+                     patternUnits="userSpaceOnUse">
+              <path d="M 72 0 L 0 0 0 65"
+                    fill="none" stroke="#242a31" stroke-width="1"/>
+            </pattern>
+            <clipPath id="chart-clip">
+              <rect x="0" y="0" width="720" height="390"/>
+            </clipPath>
+          </defs>
+
+          <rect width="720" height="390" fill="url(#chart-grid)"/>
+
+          <g clip-path="url(#chart-clip)" stroke-width="2">
+            <g *ngFor="let candle of chartCandles"
+               [attr.stroke]="candle.up ? '#20c997' : '#f05260'"
+               [attr.fill]="candle.up ? '#20c997' : '#f05260'">
+              <line [attr.x1]="candle.x" [attr.x2]="candle.x"
+                    [attr.y1]="candle.high" [attr.y2]="candle.low"/>
+              <rect [attr.x]="candle.x - 7"
+                    [attr.y]="Math.min(candle.open, candle.close)"
+                    width="14"
+                    [attr.height]="Math.max(4, Math.abs(candle.close - candle.open))"
+                    rx="1"/>
+            </g>
+          </g>
+
+          <line x1="0" y1="160" x2="720" y2="160"
+                stroke="#20c997" stroke-dasharray="5 5" opacity=".85"/>
+          <rect x="612" y="145" width="108" height="29"
+                rx="3" fill="#20c997"/>
+          <text x="666" y="164" fill="#071b16"
+                font-size="12" text-anchor="middle" font-weight="700">
+            {{ currentPrice | number:'1.2-8' }}
+          </text>
+
+          <g *ngIf="showChartIndicators">
+            <path d="M 0 290 C 100 250, 140 270, 220 225 S 360 240, 440 180 S 600 210, 720 120"
+                  fill="none" stroke="#eab308" stroke-width="1.5"
+                  stroke-dasharray="4 4"/>
+          </g>
+        </svg>
+
+        <div class="chart-time-axis" aria-hidden="true">
+          <span>09:00</span><span>10:00</span><span>11:00</span>
+          <span>12:00</span><span>13:00</span><span>14:00</span>
+        </div>
+      </div>
+
+      <div class="chart-footer">
+        <span>O <b>81,754.46</b></span>
+        <span>H <b class="positive">82,660.00</b></span>
+        <span>L <b class="negative">81,603.52</b></span>
+        <span>C <b>{{ currentPrice | number:'1.2-8' }}</b></span>
+        <span class="chart-footnote">Chart candles are sample data</span>
+      </div>
+    </section>
+
+    <section class="panel orderbook-panel"
+             [class.panel-expanded]="orderBookExpanded">
+      <div class="panel-heading book-heading">
+        <div class="book-tabs">
+          <button type="button"
+                  [class.selected]="activeBookTab === 'book'"
+                  (click)="setBookTab('book')">Order book</button>
+          <button type="button"
+                  [class.selected]="activeBookTab === 'trades'"
+                  (click)="setBookTab('trades')">Recent trades</button>
+        </div>
+
+        <button class="icon-button expand-button" type="button"
+                (click)="toggleOrderBookExpanded()"
+                [attr.aria-label]="orderBookExpanded ? 'Restore order book layout' : 'Expand order book'"
+                [title]="orderBookExpanded ? 'Restore layout' : 'Expand order book'">
+          {{ orderBookExpanded ? '⊡' : '⛶' }}
+        </button>
+      </div>
+
+      <ng-container *ngIf="activeBookTab === 'book'; else tradesTable">
+        <div class="book-table">
+          <div class="book-row book-header">
+            <span>Price <small>({{ quoteAsset }})</small></span>
+            <span>Amount <small>({{ baseAsset }})</small></span>
+            <span>Total <small>({{ quoteAsset }})</small></span>
+          </div>
+
+          <div class="book-row sell-row" *ngFor="let order of sellOrders">
+            <span>{{ order.price | number:'1.2-8' }}</span>
+            <span>{{ order.amount | number:'1.4-8' }}</span>
+            <span>{{ order.total | number:'1.2-8' }}</span>
+            <i class="depth-bar sell-depth"
+               [style.width.%]="Math.min(100, order.amount * 90)"></i>
+          </div>
+
+          <div class="current-market-price">
+            <strong [class.negative]="selectedMarket?.change < 0">
+              {{ currentPrice | number:'1.2-8' }}
+            </strong>
+            <span>
+              {{ selectedMarket?.change > 0 ? '▲' : '▼' }}
+              {{ selectedMarket?.change | number:'1.2-2' }}%
+            </span>
+          </div>
+
+          <div class="book-row buy-row" *ngFor="let order of buyOrders">
+            <span>{{ order.price | number:'1.2-8' }}</span>
+            <span>{{ order.amount | number:'1.4-8' }}</span>
+            <span>{{ order.total | number:'1.2-8' }}</span>
+            <i class="depth-bar buy-depth"
+               [style.width.%]="Math.min(100, order.amount * 50)"></i>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-template #tradesTable>
+        <div class="book-table trades-table">
+          <div class="trade-row trade-header">
+            <span>Price ({{ quoteAsset }})</span>
+            <span>Amount ({{ baseAsset }})</span>
+            <span>Time</span>
+          </div>
+
+          <div class="trade-row" *ngFor="let trade of recentTrades">
+            <span [class.positive]="trade.side === 'buy'"
+                  [class.negative]="trade.side === 'sell'">
+              {{ trade.price | number:'1.2-8' }}
+            </span>
+            <span>{{ trade.amount | number:'1.4-8' }}</span>
+            <span class="trade-time">{{ trade.time }}</span>
+          </div>
+        </div>
+      </ng-template>
+
+      <div class="book-footer">
+        <span class="status-dot"></span>
+        {{ connectionStatus }} · Market feed
+      </div>
+    </section>
+
+    <section class="panel order-panel">
+      <div class="spot-heading">
+        <strong>Spot</strong>
+        <span>Demo trading</span>
+      </div>
+
+      <div class="side-tabs">
+        <button type="button" class="buy-tab"
+                [class.active]="activeSide === 'buy'"
+                (click)="selectSide('buy')">Buy {{ baseAsset }}</button>
+        <button type="button" class="sell-tab"
+                [class.active]="activeSide === 'sell'"
+                (click)="selectSide('sell')">Sell {{ baseAsset }}</button>
+      </div>
+
+      <div class="order-types">
+        <button type="button"
+                [class.selected]="orderType === 'limit'"
+                (click)="orderType = 'limit'">Limit</button>
+        <button type="button"
+                [class.selected]="orderType === 'market'"
+                (click)="orderType = 'market'">Market</button>
+        <span class="order-type-note">
+          {{ orderType === 'limit' ? 'Set your price' : 'Current demo price' }}
+        </span>
+      </div>
+
+      <div class="balance-row">
+        <span>Available balance</span>
+        <strong>
+          <ng-container *ngIf="activeSide === 'buy'; else baseBalance">
+            {{ availableUsdt | number:'1.2-2' }} {{ quoteAsset }}
+          </ng-container>
+          <ng-template #baseBalance>
+            {{ availableBase | number:'1.4-8' }} {{ baseAsset }}
+          </ng-template>
+        </strong>
+      </div>
+
+      <label class="form-field" *ngIf="orderType === 'limit'">
+        <span>Price</span>
+        <input aria-label="Order price" type="number"
+               [(ngModel)]="price"
+               (ngModelChange)="onPriceChange($event)"
+               min="0.00000001" step="0.01"/>
+        <small>{{ quoteAsset }}</small>
+      </label>
+
+      <label class="form-field">
+        <span>Quantity</span>
+        <input aria-label="Order quantity" type="number"
+               [(ngModel)]="quantity"
+               (ngModelChange)="onQuantityChange($event)"
+               min="0" step="0.000001"/>
+        <small>{{ baseAsset }}</small>
+      </label>
+
+      <div class="percentage-buttons" aria-label="Set order size by percentage">
+        <button type="button" *ngFor="let percent of percentages"
+                (click)="setPercentage(percent)">{{ percent }}%</button>
+      </div>
+
+      <div class="total-row">
+        <span>Estimated total</span>
+        <strong>{{ total | number:'1.2-8' }} {{ quoteAsset }}</strong>
+      </div>
+
+      <div class="fee-row">
+        <span>Trading fee</span>
+        <span>Not included in demo</span>
+      </div>
+
+      <button type="button" class="submit-order"
+              [class.sell-button]="activeSide === 'sell'"
+              [disabled]="!canSubmitDemoOrder"
+              (click)="submitDemoOrder()">
+        {{ activeSide === 'buy' ? 'Buy' : 'Sell' }} {{ baseAsset }}
+      </button>
+
+      <p class="notice" *ngIf="notice" role="status">{{ notice }}</p>
+
+      <p class="demo-disclaimer">
+        Demo interface only. No orders are submitted and no balances are changed.
+      </p>
+    </section>
+  </main>
+
+  <section class="panel bottom-panel">
+    <div class="bottom-tabs">
+      <button type="button"
+              [class.selected]="activeBottomTab === 'open'"
+              (click)="setBottomTab('open')">Open orders <span>0</span></button>
+      <button type="button"
+              [class.selected]="activeBottomTab === 'history'"
+              (click)="setBottomTab('history')">Order history</button>
+      <button type="button"
+              [class.selected]="activeBottomTab === 'funds'"
+              (click)="setBottomTab('funds')">Trade history</button>
+    </div>
+
+    <div class="empty-state">
+      <span class="empty-icon">▤</span>
+      <strong>
+        {{ activeBottomTab === 'open'
+            ? 'No open orders'
+            : activeBottomTab === 'history'
+              ? 'No order history'
+              : 'No trades yet' }}
+      </strong>
+      <p>Activity will appear here after order services are integrated.</p>
+    </div>
+  </section>
+
+  <footer class="market-ticker">
+    <span class="ticker-label">
+      <i class="status-dot"></i> {{ connectionStatus }}
+    </span>
+
+    <div class="ticker-items">
+      <span *ngFor="let pair of marketPairs">
+        <b>{{ pair.symbol }}</b>
+        <strong [class.positive]="pair.change >= 0"
+                [class.negative]="pair.change < 0">
+          {{ pair.change > 0 ? '+' : '' }}{{ pair.change | number:'1.2-2' }}%
+        </strong>
+      </span>
+    </div>
+
+    <span class="ticker-status">Trade Exchange</span>
+  </footer>
+</div>
